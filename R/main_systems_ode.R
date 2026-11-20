@@ -1,0 +1,155 @@
+# ==============================================================================
+# TITRE       : Résolution Numérique et Théorique de Systèmes Différentiels Non Homogènes
+# AUTEUR      : Projet Étudiant - 2026/2027
+# DESCRIPTION : Implémentation des méthodes de résolution pour systèmes d'EDO
+#               linéaires non homogènes du 1er ordre (Variation des constantes,
+#               exponentielle de matrice, intégration numérique).
+# ==============================================================================
+
+# Packages requis
+library(deSolve)   # Résolution numérique des équations différentielles
+library(expm)      # Exponentielle de matrice (e^(At))
+library(ggplot2)   # Graphiques avancés
+library(gridExtra) # Combinaison de graphiques
+
+# ==============================================================================
+# SECTION 1 : FONCTIONS THÉORIQUES & ANALYTIQUES
+# ==============================================================================
+
+#' Exponentielle de matrice et solution homogène
+#'
+#' @param A Matrice carrée de taille n x n
+#' @param t Temps (scalaire)
+#' @param C Vecteur des constantes d'intégration
+#' @return Vecteur d'état homogène X_h(t)
+solve_homogeneous <- function(A, t, C) {
+  # Xh(t) = exp(A * t) %*% C
+  exp_At <- expm(A * t)
+  return(as.vector(exp_At %*% C))
+}
+
+#' Solution exacte analytique pour l'Exemple 1
+#' x(t) = C1*e^t + C2*e^(2t)
+#' y(t) = C2*e^(2t) - 1
+solve_exact_example1 <- function(t, C1 = 1, C2 = 1) {
+  x <- C1 * exp(t) + C2 * exp(2 * t)
+  y <- C2 * exp(2 * t) - 1
+  return(data.frame(t = t, x = x, y = y))
+}
+
+#' Solution exacte analytique pour l'Exemple 2
+#' x(t) = 2 + C1*e^(-t)
+#' y(t) = 3/2 + C2*e^(-2t)
+solve_exact_example2 <- function(t, C1 = 1, C2 = 1) {
+  x <- 2 + C1 * exp(-t)
+  y <- 1.5 + C2 * exp(-2 * t)
+  return(data.frame(t = t, x = x, y = y))
+}
+
+
+# ==============================================================================
+# SECTION 2 : RÉSOLUTION NUMÉRIQUE (deSolve)
+# ==============================================================================
+
+# --- EXEMPLE 1 ---
+# x' = x + y + 1
+# y' = 2y + 2
+system_ex1 <- function(t, y, parms) {
+  with(as.list(c(y)), {
+    dx <- x + y + 1
+    dy <- 2 * y + 2
+    return(list(c(dx, dy)))
+  })
+}
+
+# --- EXEMPLE 2 ---
+# x' = -x + 2
+# y' = -2y + 3
+system_ex2 <- function(t, y, parms) {
+  with(as.list(c(y)), {
+    dx <- -x + 2
+    dy <- -2 * y + 3
+    return(list(c(dx, dy)))
+  })
+}
+
+
+# ==============================================================================
+# SECTION 3 : ÉVALUATION ET SIMULATION
+# ==============================================================================
+
+# Paramètres temporels
+times <- seq(0, 2, by = 0.01)
+
+# --- Exécution Exemple 1 ---
+# Conditions initiales pour t=0 : si C1=1, C2=1 -> x(0)=2, y(0)=0
+y0_ex1 <- c(x = 2, y = 0)
+
+out_num_ex1 <- as.data.frame(ode(y = y0_ex1, times = times, func = system_ex1, parms = NULL))
+out_exact_ex1 <- solve_exact_example1(times, C1 = 1, C2 = 1)
+
+# --- Exécution Exemple 2 ---
+# Conditions initiales pour t=0 : si C1=1, C2=1 -> x(0)=3, y(0)=2.5
+y0_ex2 <- c(x = 3, y = 2.5)
+
+out_num_ex2 <- as.data.frame(ode(y = y0_ex2, times = times, func = system_ex2, parms = NULL))
+out_exact_ex2 <- solve_exact_example2(times, C1 = 1, C2 = 1)
+
+
+# ==============================================================================
+# SECTION 4 : VISUALISATION DES RÉSULTATS (ggplot2)
+# ==============================================================================
+
+# Graphique Exemple 1
+plot_ex1 <- ggplot() +
+  geom_line(data = out_num_ex1, aes(x = t, y = x, color = "x(t) Numérique"), size = 1.2) +
+  geom_line(data = out_num_ex1, aes(x = t, y = y, color = "y(t) Numérique"), size = 1.2) +
+  geom_point(data = out_exact_ex1[seq(1, length(times), by=10),], aes(x = t, y = x, color = "x(t) Analytique"), shape = 1) +
+  geom_point(data = out_exact_ex1[seq(1, length(times), by=10),], aes(x = t, y = y, color = "y(t) Analytique"), shape = 1) +
+  labs(title = "Exemple 1 : x' = x + y + 1 , y' = 2y + 2",
+       subtitle = "Comparaison entre solution analytique et simulation deSolve",
+       x = "Temps (t)", y = "Valeurs des fonctions",
+       color = "Légende") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"))
+
+# Graphique Exemple 2
+plot_ex2 <- ggplot() +
+  geom_line(data = out_num_ex2, aes(x = t, y = x, color = "x(t) Numérique"), size = 1.2) +
+  geom_line(data = out_num_ex2, aes(x = t, y = y, color = "y(t) Numérique"), size = 1.2) +
+  geom_point(data = out_exact_ex2[seq(1, length(times), by=10),], aes(x = t, y = x, color = "x(t) Analytique"), shape = 2) +
+  geom_point(data = out_exact_ex2[seq(1, length(times), by=10),], aes(x = t, y = y, color = "y(t) Analytique"), shape = 2) +
+  labs(title = "Exemple 2 : x' = -x + 2 , y' = -2y + 3",
+       subtitle = "Attraction vers l'état stationnaire (2, 1.5)",
+       x = "Temps (t)", y = "Valeurs des fonctions",
+       color = "Légende") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"))
+
+# Sauvegarde des graphiques dans le dossier output si présent
+if (dir.exists("output")) {
+  ggsave("output/example1_plot.png", plot = plot_ex1, width = 7, height = 5)
+  ggsave("output/example2_plot.png", plot = plot_ex2, width = 7, height = 5)
+}
+
+# Affichage des deux graphiques côte à côte
+grid.arrange(plot_ex1, plot_ex2, ncol = 2)
+
+
+# ==============================================================================
+# SECTION 5 : RECHERCHE DIRECTE D'UN ÉTAT STATIONNAIRE (k = -A^-1 * b)
+# ==============================================================================
+
+# Pour l'Exemple 2 : X' = A*X + B avec A = diag(-1, -2) et B = (2, 3)^T
+A_ex2 <- matrix(c(-1, 0, 0, -2), nrow = 2, byrow = TRUE)
+B_ex2 <- c(2, 3)
+
+# Calcul de Xp = - A^-1 * B
+Xp_ex2 <- - solve(A_ex2) %*% B_ex2
+
+cat("\n==========================================")
+cat("\n Solution particulière constante (Exemple 2) :")
+cat("\n x_p =", Xp_ex2[1])
+cat("\n y_p =", Xp_ex2[2])
+cat("\n==========================================\n")
+install.packages("deSolve")
